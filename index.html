@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flappy GF</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: skyblue;
+        }
+        canvas {
+            display: block;
+            background: url('background.png') repeat-x;
+        }
+        #message {
+            position: absolute;
+            font-size: 30px;
+            color: white;
+            font-family: 'Arial', sans-serif;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="message">I Love You</div>
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const messageDiv = document.getElementById("message");
+        canvas.width = 320;
+        canvas.height = 480;
+
+        let gf = {
+            x: 50,
+            y: canvas.height / 2,
+            width: 30,
+            height: 30,
+            gravity: 0.2,
+            lift: -6,
+            velocity: 0,
+            img: new Image()
+        };
+        gf.img.src = 'gf_head.png';
+
+        let pipes = [];
+        let pipeWidth = 70;
+        let pipeGap = 150;
+        let pipeSpeed = 1;
+        let score = 0;
+        let passedPipes = 0;
+
+        let pipeImg = new Image();
+        pipeImg.src = 'pipe.png';
+
+        // Create pipes
+        function createPipe() {
+            let pipeHeight = Math.random() * (canvas.height / 2);
+            pipes.push({ x: canvas.width, y: 0, width: pipeWidth, height: pipeHeight, flipped: false, passed: false });
+            pipes.push({ x: canvas.width, y: pipeHeight + pipeGap, width: pipeWidth, height: canvas.height - pipeHeight - pipeGap, flipped: true, passed: false });
+        }
+
+        setInterval(createPipe, 2000);
+
+        // Draw pipes
+        function drawPipes() {
+            pipes.forEach(pipe => {
+                if (pipe.flipped) {
+                    ctx.save();
+                    ctx.translate(pipe.x + pipe.width / 2, pipe.y + pipe.height / 2);
+                    ctx.rotate(Math.PI);
+                    ctx.drawImage(pipeImg, -pipe.width / 2, -pipe.height / 2, pipe.width, pipe.height);
+                    ctx.restore();
+                } else {
+                    ctx.drawImage(pipeImg, pipe.x, pipe.y, pipe.width, pipe.height);
+                }
+
+                // Add hidden collision block on upper pipe (2px wide)
+                if (!pipe.flipped) {
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+                    ctx.fillRect(pipe.x, pipe.y + 2, pipe.width, 2);  // Hidden block on upper pipe
+                }
+            });
+        }
+
+        // Update pipes' position
+        function updatePipes() {
+            pipes.forEach(pipe => {
+                pipe.x -= pipeSpeed;
+            });
+            pipes = pipes.filter(pipe => pipe.x + pipe.width > 0);
+        }
+
+        // Check for collisions (including the hidden 2px block and the roof)
+        function checkCollisions() {
+            const collisionBoxWidth = pipeWidth / 2;
+            const collisionBoxHeight = gf.height / 2;
+            const roofHeight = 0;  // Roof is at the very top, 0px
+
+            // Check collision with pipes
+            for (let i = 0; i < pipes.length; i++) {
+                let pipe = pipes[i];
+                if (pipe.flipped) {
+                    // Check for collision with bottom pipe (flipped)
+                    if (gf.x + gf.width > pipe.x && gf.x < pipe.x + pipe.width) {
+                        if (gf.y + collisionBoxHeight + gf.height > pipe.y) {
+                            return true; // Collision detected
+                        }
+                    }
+                } else {
+                    // Check for collision with the 2px hidden block on the upper pipe
+                    if (gf.x + gf.width > pipe.x && gf.x < pipe.x + pipe.width) {
+                        if (gf.y < pipe.y + 2 + collisionBoxHeight) {  // Checking the 2px block
+                            return true; // Collision detected
+                        }
+                    }
+                }
+            }
+
+            // Check if the player hits the roof (top of the screen)
+            if (gf.y < roofHeight) {
+                return true; // Collision with roof detected
+            }
+
+            return false;
+        }
+
+        // Increase score when passing pipes
+        function increaseScore() {
+            pipes.forEach(pipe => {
+                if (pipe.x + pipe.width < gf.x && !pipe.passed) {
+                    score++;
+                    pipe.passed = true;
+                    passedPipes++;
+                }
+            });
+        }
+
+        // Draw the character
+        function drawGF() {
+            ctx.drawImage(gf.img, gf.x, gf.y, gf.width, gf.height);
+        }
+
+        // Update the character's position
+        function update() {
+            gf.velocity += gf.gravity;
+            gf.y += gf.velocity;
+            if (gf.y + gf.height > canvas.height) {
+                gf.y = canvas.height - gf.height;
+                gf.velocity = 0;
+            }
+        }
+
+        // Jumping function
+        function jump() {
+            gf.velocity = gf.lift;
+        }
+
+        // Tap event listener for jump
+        canvas.addEventListener("click", jump);
+
+        // Restart the game
+        function restartGame() {
+            // Reset the game state
+            gf.y = canvas.height / 2;
+            gf.velocity = 0;
+            pipes = [];
+            score = 0;
+            passedPipes = 0;
+            messageDiv.style.display = "none";
+            canvas.removeEventListener("click", restartGame); // Remove restart listener
+            gameLoop();  // Restart the game loop
+        }
+
+        // Game loop
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawPipes();
+            drawGF();
+            update();
+            updatePipes();
+            increaseScore();
+
+            // Display score
+            ctx.fillStyle = "white";
+            ctx.font = "20px Arial";
+            ctx.fillText("Score: " + score, 10, 30);
+
+            // Check for collision
+            if (checkCollisions()) {
+                messageDiv.style.display = "block";  // Show message
+                messageDiv.innerHTML = `Game Over! <br> Score: ${score} <br> Click to Restart`;
+                canvas.addEventListener("click", restartGame);  // Add restart on click
+            } else {
+                // Show message if score reaches 24
+                if (passedPipes >= 24) {
+                    messageDiv.style.display = "block";
+                }
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        gameLoop();
+    </script>
+</body>
+</html>
