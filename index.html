@@ -8,10 +8,12 @@
         body {
             margin: 0;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             height: 100vh;
             background-color: skyblue;
+            position: relative;
         }
         canvas {
             display: block;
@@ -23,18 +25,31 @@
             color: white;
             font-family: 'Arial', sans-serif;
             display: none;
+            text-align: center;
+            top: 50%;
+        }
+        #cheatCode {
+            margin-top: 10px;
+            padding: 5px;
+            font-size: 16px;
+            text-align: center;
         }
     </style>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
     <div id="message">I Love You</div>
+    <input type="text" id="cheatCode" placeholder="Enter secret phrase">
+    
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const messageDiv = document.getElementById("message");
+        const cheatInput = document.getElementById("cheatCode");
         canvas.width = 320;
         canvas.height = 480;
+
+        let cheatActivated = false;
 
         let gf = {
             x: 50,
@@ -58,7 +73,6 @@
         let pipeImg = new Image();
         pipeImg.src = 'pipe.png';
 
-        // Create pipes
         function createPipe() {
             let pipeHeight = Math.random() * (canvas.height / 2);
             pipes.push({ x: canvas.width, y: 0, width: pipeWidth, height: pipeHeight, flipped: false, passed: false });
@@ -67,7 +81,6 @@
 
         setInterval(createPipe, 2000);
 
-        // Draw pipes
         function drawPipes() {
             pipes.forEach(pipe => {
                 if (pipe.flipped) {
@@ -79,16 +92,9 @@
                 } else {
                     ctx.drawImage(pipeImg, pipe.x, pipe.y, pipe.width, pipe.height);
                 }
-
-                // Add hidden collision block on upper pipe (2px wide)
-                if (!pipe.flipped) {
-                    ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
-                    ctx.fillRect(pipe.x, pipe.y + 2, pipe.width, 2);  // Hidden block on upper pipe
-                }
             });
         }
 
-        // Update pipes' position
         function updatePipes() {
             pipes.forEach(pipe => {
                 pipe.x -= pipeSpeed;
@@ -96,41 +102,35 @@
             pipes = pipes.filter(pipe => pipe.x + pipe.width > 0);
         }
 
-        // Check for collisions (including the hidden 2px block and the roof)
         function checkCollisions() {
+            if (cheatActivated) return false; // Disable collision if cheat is active
+
             const collisionBoxWidth = pipeWidth / 2;
             const collisionBoxHeight = gf.height / 2;
-            const roofHeight = 0;  // Roof is at the very top, 0px
+            const roofHeight = 0;
 
-            // Check collision with pipes
             for (let i = 0; i < pipes.length; i++) {
                 let pipe = pipes[i];
                 if (pipe.flipped) {
-                    // Check for collision with bottom pipe (flipped)
                     if (gf.x + gf.width > pipe.x && gf.x < pipe.x + pipe.width) {
                         if (gf.y + collisionBoxHeight + gf.height > pipe.y) {
-                            return true; // Collision detected
+                            return true;
                         }
                     }
                 } else {
-                    // Check for collision with the 2px hidden block on the upper pipe
                     if (gf.x + gf.width > pipe.x && gf.x < pipe.x + pipe.width) {
-                        if (gf.y < pipe.y + 2 + collisionBoxHeight) {  // Checking the 2px block
-                            return true; // Collision detected
+                        if (gf.y < pipe.y + 2 + collisionBoxHeight) {
+                            return true;
                         }
                     }
                 }
             }
 
-            // Check if the player hits the roof (top of the screen)
-            if (gf.y < roofHeight) {
-                return true; // Collision with roof detected
-            }
+            if (gf.y < roofHeight) return true;
 
             return false;
         }
 
-        // Increase score when passing pipes
         function increaseScore() {
             pipes.forEach(pipe => {
                 if (pipe.x + pipe.width < gf.x && !pipe.passed) {
@@ -141,12 +141,10 @@
             });
         }
 
-        // Draw the character
         function drawGF() {
             ctx.drawImage(gf.img, gf.x, gf.y, gf.width, gf.height);
         }
 
-        // Update the character's position
         function update() {
             gf.velocity += gf.gravity;
             gf.y += gf.velocity;
@@ -156,28 +154,25 @@
             }
         }
 
-        // Jumping function
         function jump() {
             gf.velocity = gf.lift;
         }
 
-        // Tap event listener for jump
         canvas.addEventListener("click", jump);
 
-        // Restart the game
         function restartGame() {
-            // Reset the game state
             gf.y = canvas.height / 2;
             gf.velocity = 0;
             pipes = [];
             score = 0;
             passedPipes = 0;
             messageDiv.style.display = "none";
-            canvas.removeEventListener("click", restartGame); // Remove restart listener
-            gameLoop();  // Restart the game loop
+            cheatActivated = false;
+            cheatInput.value = "";
+            canvas.removeEventListener("click", restartGame);
+            gameLoop();
         }
 
-        // Game loop
         function gameLoop() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawPipes();
@@ -186,24 +181,31 @@
             updatePipes();
             increaseScore();
 
-            // Display score
             ctx.fillStyle = "white";
             ctx.font = "20px Arial";
             ctx.fillText("Score: " + score, 10, 30);
 
-            // Check for collision
             if (checkCollisions()) {
-                messageDiv.style.display = "block";  // Show message
+                messageDiv.style.display = "block";
                 messageDiv.innerHTML = `Game Over! <br> Score: ${score} <br> Click to Restart`;
-                canvas.addEventListener("click", restartGame);  // Add restart on click
+                canvas.addEventListener("click", restartGame);
             } else {
-                // Show message if score reaches 24
                 if (passedPipes >= 24) {
                     messageDiv.style.display = "block";
                 }
                 requestAnimationFrame(gameLoop);
             }
         }
+
+        cheatInput.addEventListener("input", function () {
+            if (cheatInput.value === "iwanttohaveyourkidsAla") {
+                cheatActivated = true;
+                cheatInput.style.backgroundColor = "lightgreen";
+            } else {
+                cheatActivated = false;
+                cheatInput.style.backgroundColor = "white";
+            }
+        });
 
         gameLoop();
     </script>
